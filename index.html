@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Linear Transformation Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+        body {
+    font-family: "PT Serif", serif;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #0f1624;
+    color: #e6f1ff;
+}
+
+h1, h2, h3 {
+    color: #64ffda;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.main-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.canvas-container {
+    position: relative;
+    flex: 1 1 600px;
+}
+
+#transformCanvas {
+    background-color: #1a2332;
+    border: 1px solid #304166;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    border-radius: 8px;
+}
+
+.controls {
+    flex: 1 1 300px;
+    background-color: #1a2332;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    border: 1px solid #304166;
+}
+
+.explanation {
+    background-color: #1a2332;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    margin-top: 20px;
+    border: 1px solid #304166;
+}
+
+.matrix-input {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 15px;
+    margin-bottom: 25px;
+}
+
+.matrix-cell {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-gap: 8px;
+}
+
+input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    background-color: #253351;
+    color: #e6f1ff;
+    border: 1px solid #3d5277;
+    border-radius: 4px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.checkbox-group {
+    margin-bottom: 20px;
+}
+
+.checkbox-group div {
+    margin-bottom: 10px;
+}
+
+input[type="checkbox"] {
+    accent-color: #64ffda;
+}
+
+button {
+    background-color: #4d79ff;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 12px;
+    margin-bottom: 12px;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+button:hover {
+    background-color: #2e59cc;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.reset {
+    background-color: #ff4d4d;
+}
+
+.reset:hover {
+    background-color: #cc2e2e;
+}
+
+.presets-group {
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.info-panel {
+    background-color: #253351;
+    border: 1px solid #3d5277;
+    border-radius: 6px;
+    padding: 15px;
+    margin-top: 20px;
+}
+
+.eigenvalues {
+    font-family: monospace;
+    color: #64ffda;
+}
+
+.det-value {
+    font-weight: bold;
+    font-family: monospace;
+    color: #4d79ff;
+}
+
+#eigenvectorCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    border-radius: 8px;
+}
+
+label {
+    font-weight: 500;
+    color: #a8b2d1;
+}
+
+#transformationType {
+    color: #64ffda;
+}
+
+/* Adjust axes and grid colors */
+#transformCanvas {
+    --axis-color: #4d79ff;
+    --grid-color: rgba(61, 82, 119, 0.6);
+    --text-color: #a8b2d1;
+}
+
+/* Additional stylish elements */
+h1 {
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2.2rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 10px rgba(100, 255, 218, 0.2);
+}
+
+h2 {
+    margin-top: 10px;
+    font-size: 1.5rem;
+    border-bottom: 2px solid #304166;
+    padding-bottom: 8px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .canvas-container, .controls {
+        flex: 1 1 100%;
+    }
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Interactive Linear Transformation Visualizer</h1>
+        
+        <div class="main-content">
+            <div class="canvas-container">
+                <canvas id="transformCanvas" width="600" height="600"></canvas>
+                <canvas id="eigenvectorCanvas" width="600" height="600"></canvas>
+            </div>
+            
+            <div class="controls">
+                <h2>Transformation Matrix</h2>
+                <div class="matrix-input">
+                    <div class="matrix-cell">
+                        <label for="a">a (top left)</label>
+                        <input type="number" id="a" value="1" step="0.1" oninput="updateTransformation()">
+                    </div>
+                    <div class="matrix-cell">
+                        <label for="b">b (top right)</label>
+                        <input type="number" id="b" value="0" step="0.1" oninput="updateTransformation()">
+                    </div>
+                    <div class="matrix-cell">
+                        <label for="c">c (bottom left)</label>
+                        <input type="number" id="c" value="0" step="0.1" oninput="updateTransformation()">
+                    </div>
+                    <div class="matrix-cell">
+                        <label for="d">d (bottom right)</label>
+                        <input type="number" id="d" value="1" step="0.1" oninput="updateTransformation()">
+                    </div>
+                </div>
+                
+                <div class="presets-group">
+                    <h3>Presets</h3>
+                    <button onclick="setPreset(1, 0, 0, 1)">Identity</button>
+                    <button onclick="setPreset(2, 0, 0, 2)">Scale (2x)</button>
+                    <button onclick="setPreset(0, 1, -1, 0)">Rotation (90°)</button>
+                    <button onclick="setPreset(1, 1, 0, 1)">Shear X</button>
+                    <button onclick="setPreset(1, 0, 1, 1)">Shear Y</button>
+                    <button onclick="setPreset(0.5, 0, 0, 2)">Stretch/Compress</button>
+                </div>
+                
+                <div class="checkbox-group">
+                    <h3>Display Options</h3>
+                    <div>
+                        <input type="checkbox" id="showGrid" checked onchange="updateTransformation()">
+                        <label for="showGrid">Show Grid</label>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="showBasisVectors" checked onchange="updateTransformation()">
+                        <label for="showBasisVectors">Show Basis Vectors</label>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="showUnitCircle" checked onchange="updateTransformation()">
+                        <label for="showUnitCircle">Show Unit Circle</label>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="showEigenvectors" checked onchange="updateTransformation()">
+                        <label for="showEigenvectors">Show Eigenvectors</label>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="animateTransformation" onchange="updateTransformation()">
+                        <label for="animateTransformation">Animate Transformation</label>
+                    </div>
+                </div>
+                
+                <button id="applyBtn" onclick="animateTransformation()">Animate Transformation</button>
+                <button class="reset" onclick="resetView()">Reset View</button>
+                
+                <div class="info-panel">
+                    <h3>Matrix Properties</h3>
+                    <p>Determinant: <span id="determinant" class="det-value">1.00</span></p>
+                    <p>Eigenvalues: <span id="eigenvalues" class="eigenvalues">λ₁=1.00, λ₂=1.00</span></p>
+                    <p id="transformationType">Type: Identity transformation</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="explanation">
+            <h2>Understanding Linear Transformations</h2>
+            
+            <div id="currentExplanation">
+                <h3>What are Linear Transformations?</h3>
+                <p>A linear transformation is a function that preserves vector addition and scalar multiplication. The 2×2 matrix 
+                [a b; c d] defines how vectors are transformed in 2D space.</p>
+                
+                <h3>Column Vectors</h3>
+                <p>The columns of the matrix tell you where the standard basis vectors (1,0) and (0,1) land after the transformation. 
+                The first column [a, c] shows where the x-axis unit vector goes, and the second column [b, d] shows where the y-axis unit vector goes.</p>
+                
+                <h3>Determinant</h3>
+                <p>The determinant (ad-bc) represents the factor by which areas are scaled during the transformation. 
+                A positive determinant preserves orientation, while a negative one reverses it. A zero determinant means the transformation 
+                collapses space into a line or point.</p>
+                
+                <h3>Eigenvectors</h3>
+                <p>Eigenvectors are special vectors that only get stretched or compressed by the transformation, without changing direction. 
+                The corresponding eigenvalue tells you by how much the eigenvector is scaled.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('transformCanvas');
+        const eigCanvas = document.getElementById('eigenvectorCanvas');
+        const ctx = canvas.getContext('2d');
+        const eigCtx = eigCanvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        const center = { x: width / 2, y: height / 2 };
+        const scale = 50; // Pixels per unit
+        
+        // Current transformation matrix
+        let matrix = [[1, 0], [0, 1]];
+        
+        // Animation parameters
+        let animating = false;
+        let animationProgress = 0;
+        let startMatrix = [[1, 0], [0, 1]];
+        let targetMatrix = [[1, 0], [0, 1]];
+        let requestId = null;
+        
+        // Pre-transform grid points
+        let gridPoints = [];
+        let unitCirclePoints = [];
+        
+        // Initialize
+        initializePoints();
+        updateTransformation();
+        
+        function initializePoints() {
+            // Create grid points
+            gridPoints = [];
+            const gridSize = 10;
+            for (let x = -gridSize; x <= gridSize; x++) {
+                for (let y = -gridSize; y <= gridSize; y++) {
+                    // Skip the point at extreme corners to avoid clutter
+                    if (Math.abs(x) === gridSize && Math.abs(y) === gridSize) continue;
+                    gridPoints.push([x, y]);
+                }
+            }
+            
+            // Create unit circle points
+            unitCirclePoints = [];
+            const segments = 60;
+            for (let i = 0; i <= segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+                unitCirclePoints.push([Math.cos(angle), Math.sin(angle)]);
+            }
+        }
+        
+       function drawGrid(transformedPoints) {
+    if (!document.getElementById('showGrid').checked) return;
+    
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 1;
+    
+    // Create lookup function to access grid points more safely and logically
+    function getPointAt(x, y) {
+        // Find the index in the flat array
+        for (let i = 0; i < gridPoints.length; i++) {
+            if (gridPoints[i][0] === x && gridPoints[i][1] === y) {
+                return transformedPoints[i];
+            }
+        }
+        return null; // Point not found
+    }
+    
+    // Draw horizontal grid lines
+    for (let y = -10; y <= 10; y++) {
+        ctx.beginPath();
+        let firstPoint = true;
+        
+        for (let x = -10; x <= 10; x++) {
+            const point = getPointAt(x, y);
+            if (!point) continue;
+            
+            if (firstPoint) {
+                ctx.moveTo(center.x + point[0] * scale, center.y - point[1] * scale);
+                firstPoint = false;
+            } else {
+                ctx.lineTo(center.x + point[0] * scale, center.y - point[1] * scale);
+            }
+        }
+        ctx.stroke();
+    }
+    
+    // Draw vertical grid lines
+    for (let x = -10; x <= 10; x++) {
+        ctx.beginPath();
+        let firstPoint = true;
+        
+        for (let y = -10; y <= 10; y++) {
+            const point = getPointAt(x, y);
+            if (!point) continue;
+            
+            if (firstPoint) {
+                ctx.moveTo(center.x + point[0] * scale, center.y - point[1] * scale);
+                firstPoint = false;
+            } else {
+                ctx.lineTo(center.x + point[0] * scale, center.y - point[1] * scale);
+            }
+        }
+        ctx.stroke();
+    }
+}
+
+        
+        function drawUnitCircle(transformedCirclePoints) {
+            if (!document.getElementById('showUnitCircle').checked) return;
+            
+            ctx.strokeStyle = '#9b59b6';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            transformedCirclePoints.forEach((point, i) => {
+                if (i === 0) {
+                    ctx.moveTo(center.x + point[0] * scale, center.y - point[1] * scale);
+                } else {
+                    ctx.lineTo(center.x + point[0] * scale, center.y - point[1] * scale);
+                }
+            });
+            ctx.closePath();
+            ctx.stroke();
+            
+            // Draw original unit circle (faint)
+            ctx.strokeStyle = 'rgba(155, 89, 182, 0.3)';
+            ctx.lineWidth = 1;
+            
+            ctx.beginPath();
+            unitCirclePoints.forEach((point, i) => {
+                if (i === 0) {
+                    ctx.moveTo(center.x + point[0] * scale, center.y - point[1] * scale);
+                } else {
+                    ctx.lineTo(center.x + point[0] * scale, center.y - point[1] * scale);
+                }
+            });
+            ctx.closePath();
+            ctx.stroke();
+        }
+        
+        function drawBasisVectors(transformedBasis) {
+            if (!document.getElementById('showBasisVectors').checked) return;
+            
+            // Draw transformed x-axis basis vector
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 3;
+            
+            ctx.beginPath();
+            ctx.moveTo(center.x, center.y);
+            ctx.lineTo(center.x + transformedBasis[0][0] * scale, center.y - transformedBasis[0][1] * scale);
+            ctx.stroke();
+            
+            // Draw transformed y-axis basis vector
+            ctx.strokeStyle = '#2ecc71';
+            ctx.lineWidth = 3;
+            
+            ctx.beginPath();
+            ctx.moveTo(center.x, center.y);
+            ctx.lineTo(center.x + transformedBasis[1][0] * scale, center.y - transformedBasis[1][1] * scale);
+            ctx.stroke();
+            
+            // Draw original basis vectors (faint)
+            // x-axis
+            ctx.strokeStyle = 'rgba(231, 76, 60, 0.3)';
+            ctx.lineWidth = 1;
+            
+            ctx.beginPath();
+            ctx.moveTo(center.x, center.y);
+            ctx.lineTo(center.x + scale, center.y);
+            ctx.stroke();
+            
+            // y-axis
+            ctx.strokeStyle = 'rgba(46, 204, 113, 0.3)';
+            ctx.lineWidth = 1;
+            
+            ctx.beginPath();
+            ctx.moveTo(center.x, center.y);
+            ctx.lineTo(center.x, center.y - scale);
+            ctx.stroke();
+            
+            // Label the basis vectors
+            ctx.fillStyle = '#e74c3c';
+            ctx.font = '16px Arial';
+            ctx.fillText('i', center.x + transformedBasis[0][0] * scale + 5, center.y - transformedBasis[0][1] * scale + 15);
+            
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillText('j', center.x + transformedBasis[1][0] * scale + 5, center.y - transformedBasis[1][1] * scale + 15);
+        }
+        
+        function drawAxes() {
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            
+            // Draw x-axis
+            ctx.beginPath();
+            ctx.moveTo(0, center.y);
+            ctx.lineTo(width, center.y);
+            ctx.stroke();
+            
+            // Draw y-axis
+            ctx.beginPath();
+            ctx.moveTo(center.x, 0);
+            ctx.lineTo(center.x, height);
+            ctx.stroke();
+            
+            // Draw tick marks and numbers
+            ctx.fillStyle = '#000';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            
+            for (let x = -10; x <= 10; x++) {
+                if (x === 0) continue;
+                if (x % 2 === 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(center.x + x * scale, center.y - 5);
+                    ctx.lineTo(center.x + x * scale, center.y + 5);
+                    ctx.stroke();
+                    ctx.fillText(x.toString(), center.x + x * scale, center.y + 10);
+                }
+            }
+            
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            
+            for (let y = -10; y <= 10; y++) {
+                if (y === 0) continue;
+                if (y % 2 === 0) {
+                    ctx.beginPath();
+                    ctx.moveTo(center.x - 5, center.y - y * scale);
+                    ctx.lineTo(center.x + 5, center.y - y * scale);
+                    ctx.stroke();
+                    ctx.fillText(y.toString(), center.x - 10, center.y - y * scale);
+                }
+            }
+            
+            // Origin label
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'top';
+            ctx.fillText('0', center.x - 5, center.y + 5);
+        }
+        
+        function drawEigenvectors(eigenvectors, eigenvalues) {
+            if (!document.getElementById('showEigenvectors').checked) return;
+            
+            // Clear eigenvector canvas
+            eigCtx.clearRect(0, 0, width, height);
+            
+            for (let i = 0; i < eigenvectors.length; i++) {
+                if (math.isComplex(eigenvalues[i])) continue; // Skip complex eigenvalues
+                
+                const vec = eigenvectors[i];
+                const val = eigenvalues[i];
+                
+                // Normalize vector for display
+                const length = Math.sqrt(vec[0] * vec[0] + vec[1] * vec[1]);
+                if (length < 0.0001) continue; // Skip too small vectors
+                
+                const normalizedVec = [vec[0] / length, vec[1] / length];
+                
+                // Scale for display (both directions)
+                const scaleFactor = 4; // Display length
+                
+                // Positive direction
+                eigCtx.strokeStyle = '#ff9500';
+                eigCtx.lineWidth = 3;
+                eigCtx.beginPath();
+                eigCtx.moveTo(center.x, center.y);
+                eigCtx.lineTo(
+                    center.x + normalizedVec[0] * scale * scaleFactor,
+                    center.y - normalizedVec[1] * scale * scaleFactor
+                );
+                eigCtx.stroke();
+                
+                // Negative direction
+                eigCtx.strokeStyle = '#ff9500';
+                eigCtx.lineWidth = 3;
+                eigCtx.setLineDash([5, 5]);
+                eigCtx.beginPath();
+                eigCtx.moveTo(center.x, center.y);
+                eigCtx.lineTo(
+                    center.x - normalizedVec[0] * scale * scaleFactor,
+                    center.y + normalizedVec[1] * scale * scaleFactor
+                );
+                eigCtx.stroke();
+                eigCtx.setLineDash([]);
+                
+                // Mark eigenvalue
+                const textX = center.x + normalizedVec[0] * scale * (scaleFactor + 0.5);
+                const textY = center.y - normalizedVec[1] * scale * (scaleFactor + 0.5);
+                
+                eigCtx.fillStyle = '#ff9500';
+                eigCtx.font = 'bold 16px Arial';
+                eigCtx.textAlign = 'center';
+                eigCtx.textBaseline = 'middle';
+                eigCtx.fillText(`λ = ${val.toFixed(2)}`, textX, textY);
+            }
+        }
+        
+        function transformPoints(points, transform) {
+            return points.map(point => {
+                return [
+                    transform[0][0] * point[0] + transform[0][1] * point[1],
+                    transform[1][0] * point[0] + transform[1][1] * point[1]
+                ];
+            });
+        }
+        
+        function interpolateMatrix(start, end, progress) {
+            return [
+                [
+                    start[0][0] + (end[0][0] - start[0][0]) * progress,
+                    start[0][1] + (end[0][1] - start[0][1]) * progress
+                ],
+                [
+                    start[1][0] + (end[1][0] - start[1][0]) * progress,
+                    start[1][1] + (end[1][1] - start[1][1]) * progress
+                ]
+            ];
+        }
+        
+        function animateTransformation() {
+            if (animating) return;
+            
+            animating = true;
+            animationProgress = 0;
+            
+            startMatrix = [[1, 0], [0, 1]]; // Start from identity
+            targetMatrix = getMatrixFromInputs();
+            
+            function animate() {
+                animationProgress += 0.01;
+                
+                if (animationProgress >= 1) {
+                    animationProgress = 1;
+                    animating = false;
+                }
+                
+                const currentMatrix = interpolateMatrix(startMatrix, targetMatrix, animationProgress);
+                draw(currentMatrix);
+                
+                if (animationProgress < 1) {
+                    requestId = requestAnimationFrame(animate);
+                }
+            }
+            
+            if (requestId) {
+                cancelAnimationFrame(requestId);
+            }
+            
+            requestId = requestAnimationFrame(animate);
+        }
+        
+        function calculateEigenvectors(matrix) {
+            try {
+                const m = math.matrix([
+                    [matrix[0][0], matrix[0][1]],
+                    [matrix[1][0], matrix[1][1]]
+                ]);
+                
+                const {values, vectors} = math.eigs(m);
+                
+                // Convert to standard arrays
+                const eigenvalues = Array.from(values);
+                
+                // Get eigenvectors
+                const eigenvectors = [];
+                for (let i = 0; i < eigenvalues.length; i++) {
+                    const vec = math.subset(vectors, math.index(math.range(0, 2), i));
+                    eigenvectors.push([vec.get([0]), vec.get([1])]);
+                }
+                
+                return {eigenvalues, eigenvectors};
+            } catch (e) {
+                console.error("Error calculating eigenvectors:", e);
+                return {eigenvalues: [], eigenvectors: []};
+            }
+        }
+        
+        function setPreset(a, b, c, d) {
+            document.getElementById('a').value = a;
+            document.getElementById('b').value = b;
+            document.getElementById('c').value = c;
+            document.getElementById('d').value = d;
+            updateTransformation();
+        }
+        
+        function classifyTransformation(matrix, determinant, eigenvalues) {
+            const a = matrix[0][0];
+            const b = matrix[0][1];
+            const c = matrix[1][0];
+            const d = matrix[1][1];
+            
+            // Identity check
+            if (Math.abs(a - 1) < 0.01 && Math.abs(b) < 0.01 && 
+                Math.abs(c) < 0.01 && Math.abs(d - 1) < 0.01) {
+                return "Identity transformation";
+            }
+            
+            // Scaling check
+            if (Math.abs(b) < 0.01 && Math.abs(c) < 0.01) {
+                if (Math.abs(a - d) < 0.01) {
+                    return `Uniform scaling by factor ${a.toFixed(2)}`;
+                } else {
+                    return `Non-uniform scaling (${a.toFixed(2)}, ${d.toFixed(2)})`;
+                }
+            }
+            
+            // Rotation check
+            if (Math.abs(a - d) < 0.01 && Math.abs(b + c) < 0.01 && 
+                Math.abs(a*a + b*b - 1) < 0.01) {
+                const angle = Math.atan2(b, a) * (180/Math.PI);
+                return `Rotation by ${Math.round(angle)}° counterclockwise`;
+            }
+            
+            // Shear check
+            if ((Math.abs(a - 1) < 0.01 && Math.abs(d - 1) < 0.01 && 
+                 Math.abs(c) < 0.01 && Math.abs(b) > 0.01) ||
+                (Math.abs(a - 1) < 0.01 && Math.abs(d - 1) < 0.01 && 
+                 Math.abs(b) < 0.01 && Math.abs(c) > 0.01)) {
+                if (Math.abs(c) < 0.01) {
+                    return `Horizontal shear by factor ${b.toFixed(2)}`;
+                } else {
+                    return `Vertical shear by factor ${c.toFixed(2)}`;
+                }
+            }
+            
+            // Reflection check
+            if (determinant < -0.99 && determinant > -1.01) {
+                if (Math.abs(a + 1) < 0.01 && Math.abs(b) < 0.01 && 
+                    Math.abs(c) < 0.01 && Math.abs(d - 1) < 0.01) {
+                    return "Reflection across y-axis";
+                }
+                if (Math.abs(a - 1) < 0.01 && Math.abs(b) < 0.01 && 
+                    Math.abs(c) < 0.01 && Math.abs(d + 1) < 0.01) {
+                    return "Reflection across x-axis";
+                }
+                if (Math.abs(a) < 0.01 && Math.abs(b - 1) < 0.01 && 
+                    Math.abs(c - 1) < 0.01 && Math.abs(d) < 0.01) {
+                    return "Reflection across y = x";
+                }
+                if (Math.abs(a) < 0.01 && Math.abs(b + 1) < 0.01 && 
+                    Math.abs(c + 1) < 0.01 && Math.abs(d) < 0.01) {
+                    return "Reflection across y = -x";
+                }
+                return "Reflection";
+            }
+            
+            // Projection check
+            if (Math.abs(determinant) < 0.01) {
+                return "Projection (collapses space into a line or point)";
+            }
+            
+            // Check for complex eigenvalues (rotation + scaling)
+            let hasComplex = false;
+            for (let i = 0; i < eigenvalues.length; i++) {
+                if (math.isComplex(eigenvalues[i])) {
+                    hasComplex = true;
+                    break;
+                }
+            }
+            
+            if (hasComplex) {
+                return "Rotation with scaling";
+            }
+            
+            return "General linear transformation";
+        }
+        
+        function getMatrixFromInputs() {
+            const a = parseFloat(document.getElementById('a').value);
+            const b = parseFloat(document.getElementById('b').value);
+            const c = parseFloat(document.getElementById('c').value);
+            const d = parseFloat(document.getElementById('d').value);
+            
+            return [[a, b], [c, d]];
+        }
+        
+        function updateTransformation() {
+            matrix = getMatrixFromInputs();
+            
+            if (document.getElementById('animateTransformation').checked) {
+                animateTransformation();
+            } else {
+                draw(matrix);
+            }
+        }
+        
+        function draw(currentMatrix) {
+            // Clear canvases
+            ctx.clearRect(0, 0, width, height);
+            eigCtx.clearRect(0, 0, width, height);
+            
+            // Transform points
+            const transformedGridPoints = transformPoints(gridPoints, currentMatrix);
+            const transformedUnitCirclePoints = transformPoints(unitCirclePoints, currentMatrix);
+            
+            // Basis vectors after transformation
+            const transformedBasis = [
+                [currentMatrix[0][0], currentMatrix[1][0]], // Where (1,0) goes
+                [currentMatrix[0][1], currentMatrix[1][1]]  // Where (0,1) goes
+            ];
+            
+            // Draw elements
+            drawAxes();
+            drawGrid(transformedGridPoints);
+            drawUnitCircle(transformedUnitCirclePoints);
+            drawBasisVectors(transformedBasis);
+            
+            // Calculate and display determinant
+            const determinant = currentMatrix[0][0] * currentMatrix[1][1] - currentMatrix[0][1] * currentMatrix[1][0];
+            document.getElementById('determinant').textContent = determinant.toFixed(2);
+            
+            // Calculate and display eigenvalues/eigenvectors
+            const {eigenvalues, eigenvectors} = calculateEigenvectors(currentMatrix);
+            
+            // Format eigenvalues for display
+            let eigenvalueText = "";
+            for (let i = 0; i < eigenvalues.length; i++) {
+                if (math.isComplex(eigenvalues[i])) {
+                    const real = math.re(eigenvalues[i]).toFixed(2);
+                    const imag = math.im(eigenvalues[i]).toFixed(2);
+                    eigenvalueText += `λ${i+1}=${real}${imag >= 0 ? '+' : ''}${imag}i`;
+                } else {
+                    eigenvalueText += `λ${i+1}=${eigenvalues[i].toFixed(2)}`;
+                }
+                
+                if (i < eigenvalues.length - 1) {
+                    eigenvalueText += ", ";
+                }
+            }
+            document.getElementById('eigenvalues').textContent = eigenvalueText;
+            
+            // Draw eigenvectors
+            drawEigenvectors(eigenvectors, eigenvalues);
+            
+            // Classify the transformation type
+            const transformationType = classifyTransformation(currentMatrix, determinant, eigenvalues);
+            document.getElementById('transformationType').textContent = `Type: ${transformationType}`;
+            
+            // Update explanation based on transformation type
+            updateExplanation(transformationType);
+        }
+        
+        function resetView() {
+            setPreset(1, 0, 0, 1);
+            if (requestId) {
+                cancelAnimationFrame(requestId);
+                animating = false;
+            }
+        }
+        
+        function updateExplanation(transformationType) {
+            let explanationText = '';
+            
+            if (transformationType.includes("Identity")) {
+                explanationText = `
+                    <h3>Identity Transformation</h3>
+                    <p>The identity transformation leaves all vectors unchanged. Each vector is mapped to itself.</p>
+                    <p>The matrix [1 0; 0 1] represents the identity transformation in 2D space.</p>
+                `;
+            } else if (transformationType.includes("scaling")) {
+                explanationText = `
+                    <h3>Scaling Transformation</h3>
+                    <p>A scaling transformation stretches or compresses space along the coordinate axes.</p>
+                    <p>When the scale factors are equal (uniform scaling), shapes maintain their proportions. 
+                    When they differ (non-uniform scaling), shapes are distorted.</p>
+                    <p>The determinant equals the product of the scaling factors and represents the area scaling.</p>
+                `;
+            } else if (transformationType.includes("Rotation")) {
+                explanationText = `
+                    <h3>Rotation Transformation</h3>
+                    <p>A rotation transformation rotates all vectors by the same angle around the origin.</p>
+                    <p>For a counterclockwise rotation by angle θ, the matrix is [cos(θ) -sin(θ); sin(θ) cos(θ)].</p>
+                    <p>Rotations preserve distances and angles. The determinant is always 1.</p>
+                    <p>When combined with scaling, the eigenvectors become complex numbers.</p>
+                `;
+            } else if (transformationType.includes("shear")) {
+                explanationText = `
+                    <h3>Shear Transformation</h3>
+                    <p>A shear transformation slants the coordinate space, keeping one axis fixed while making the other axis tilt.</p>
+                    <p>Horizontal shear: [1 k; 0 1] shifts x-coordinates based on y-position.</p>
+                    <p>Vertical shear: [1 0; k 1] shifts y-coordinates based on x-position.</p>
+                    <p>Shears preserve areas, so the determinant is always 1.</p>
+                `;
+            } else if (transformationType.includes("Reflection")) {
+                explanationText = `
+                    <h3>Reflection Transformation</h3>
+                    <p>A reflection transformation flips vectors across a line through the origin.</p>
+                    <p>Reflections reverse orientation and have a determinant of -1.</p>
+                    <p>Common reflections include:</p>
+                    <ul>
+                        <li>Across x-axis: [1 0; 0 -1]</li>
+                        <li>Across y-axis: [-1 0; 0 1]</li>
+                        <li>Across y=x: [0 1; 1 0]</li>
+                        <li>Across y=-x: [0 -1; -1 0]</li>
+                    </ul>
+                `;
+            } else if (transformationType.includes("Projection")) {
+                explanationText = `
+                    <h3>Projection Transformation</h3>
+                    <p>A projection collapses all vectors onto a line or point, reducing the dimension of the space.</p>
+                    <p>Projections always have a determinant of 0, as they squash the area to zero.</p>
+                    <p>Examples:</p>
+                    <ul>
+                        <li>Projection onto x-axis: [1 0; 0 0]</li>
+                        <li>Projection onto y-axis: [0 0; 0 1]</li>
+                        <li>Projection onto a line: scaling + rotation factors</li>
+                    </ul>
+                `;
+            } else {
+                explanationText = `
+                    <h3>General Linear Transformation</h3>
+                    <p>This transformation combines multiple effects like scaling, rotation, shearing, etc.</p>
+                    <p>The determinant indicates how areas are scaled and whether orientation is preserved.</p>
+                    <p>Eigenvectors show which directions are only scaled (not rotated) by the transformation.</p>
+                    <p>Any 2×2 matrix can be decomposed into simpler transformations like rotations and scalings.</p>
+                `;
+            }
+            
+            document.getElementById('currentExplanation').innerHTML = explanationText;
+        }
+    </script>
+</body>
+</html>
